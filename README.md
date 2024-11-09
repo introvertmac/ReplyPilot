@@ -141,7 +141,7 @@ Common issues and solutions:
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.
+This project is licensed under the MIT License 
 
 ## 🙏 Acknowledgments
 
@@ -158,11 +158,6 @@ This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md
 - Export/import capabilities
 - Integration with email clients
 
-## 📞 Support
-
-- GitHub Issues for bug reports
-- Email support@replypilot.com
-- Documentation at docs.replypilot.com
 
 ---
 

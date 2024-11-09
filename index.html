@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="ReplyPilot - AI-powered email response generator with multiple personality tones">
+    <title>ReplyPilot - Smart Email Responses</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232563eb' stroke-width='2'><path d='m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z'/></svg>">
+</head>
+<body>
+    <!-- API Key Modal -->
+    <div id="apiKeyModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <svg class="sparkle-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
+                </svg>
+                <h2>Welcome to ReplyPilot</h2>
+            </div>
+            <p class="modal-description">To get started, please enter your xAI API key.</p>
+            <div class="api-key-input-group">
+                <input type="password" id="apiKeyInput" placeholder="Enter your xAI API key" autocomplete="off" spellcheck="false">
+                <button id="toggleApiKey" class="icon-button" title="Toggle API key visibility">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                        <circle cx="12" cy="12" r="3"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-footer">
+                <p class="api-key-note">Your API key will be stored locally and never sent to our servers.</p>
+                <button id="saveApiKey" class="primary-button">
+                    <span class="button-content">
+                        Start Using ReplyPilot
+                    </span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="container" style="display: none">
+        <!-- Header -->
+        <header>
+            <div class="logo">
+                <svg class="sparkle-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
+                </svg>
+                <h1>ReplyPilot</h1>
+            </div>
+            <p class="subtitle">Craft perfect email responses in seconds with AI</p>
+            
+            <!-- API Key Management -->
+            <button id="manageApiKey" class="api-key-button" title="Manage API Key">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0 3 3L22 7l-3-3m-3.5 3.5L19 4"/>
+                </svg>
+                Manage API Key
+            </button>
+        </header>
+
+        <!-- Main Content -->
+        <main>
+            <div class="grid">
+                <!-- Input Card -->
+                <div class="card">
+                    <h2>Input Email</h2>
+                    <div class="input-section">
+                        <div class="textarea-wrapper">
+                            <textarea 
+                                id="emailInput" 
+                                placeholder="Paste the email you want to respond to..."
+                                aria-label="Email input"
+                            ></textarea>
+                            <div id="wordCount" class="word-count">0 words</div>
+                        </div>
+
+                        <div class="controls">
+                            <div class="select-group">
+                                <label for="toneSelect">Tone</label>
+                                <select id="toneSelect" aria-label="Select response tone">
+                                    <optgroup label="Professional">
+                                        <option value="professional">Professional</option>
+                                        <option value="formal">Formal</option>
+                                        <option value="friendly">Friendly</option>
+                                        <option value="casual">Casual</option>
+                                    </optgroup>
+                                    <optgroup label="Fun & Creative">
+                                        <option value="funny">Humorous</option>
+                                        <option value="sarcastic">Sarcastic</option>
+                                        <option value="roast">Roast Spammer</option>
+                                        <option value="medieval">Medieval Knight</option>
+                                        <option value="pirate">Pirate Captain</option>
+                                        <option value="shakespeare">Shakespeare</option>
+                                    </optgroup>
+                                    <optgroup label="Personal">
+                                        <option value="love">Love Letter</option>
+                                        <option value="poet">Poetic</option>
+                                        <option value="motivational">Motivational</option>
+                                        <option value="thankful">Gratitude</option>
+                                    </optgroup>
+                                    <optgroup label="Special">
+                                        <option value="detective">Detective</option>
+                                        <option value="sci-fi">Sci-Fi Captain</option>
+                                        <option value="wizard">Wizard</option>
+                                        <option value="cowboy">Western Cowboy</option>
+                                    </optgroup>
+                                </select>
+                            </div>
+
+                            <div class="select-group">
+                                <label for="lengthSelect">Length</label>
+                                <select id="lengthSelect" aria-label="Select response length">
+                                    <option value="short">Short</option>
+                                    <option value="medium">Medium</option>
+                                    <option value="long">Detailed</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="tone-preview" id="tonePreview">
+                            <span class="tone-badge">Professional</span>
+                            <p class="tone-description">Clear and professional communication style</p>
+                        </div>
+
+                        <button id="generateButton" class="primary-button" disabled>
+                            <span class="button-content">
+                                <svg class="generate-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
+                                </svg>
+                                Generate Response
+                            </span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Output Card -->
+                <div class="card">
+                    <div class="response-header">
+                        <h2>Generated Response</h2>
+                        <div class="action-buttons">
+                            <button id="regenerateButton" class="icon-button" title="Regenerate" style="display: none;">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.85.83 6.72 2.24"/>
+                                    <path d="M21 3v9h-9"/>
+                                </svg>
+                            </button>
+                            <button id="copyButton" class="icon-button" title="Copy to clipboard" style="display: none;">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="response-container">
+                        <div id="responseOutput" class="response-output">
+                            Generated response will appear here...
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Features Section -->
+            <div class="features">
+                <div class="feature-card">
+                    <h3>Smart Responses</h3>
+                    <p>AI-powered responses that match your tone and style</p>
+                </div>
+                <div class="feature-card">
+                    <h3>Multiple Tones</h3>
+                    <p>Choose from various personalities and styles</p>
+                </div>
+                <div class="feature-card">
+                    <h3>Instant Results</h3>
+                    <p>Get perfect email responses in seconds</p>
+                </div>
+            </div>
+        </main>
+
+        <!-- Toast Container -->
+        <div id="toastContainer" class="toast-container"></div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

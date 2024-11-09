@@ -45,6 +45,85 @@ const CONFIG = {
     RETRY_ATTEMPTS: 3,
     RETRY_DELAY: 1000,
     API_TIMEOUT: 30000, // 30 seconds
+    analyzerFunctions: [
+        {
+            name: "analyze_grammar",
+            description: "Analyze and fix grammar errors in text",
+            parameters: {
+                type: "object",
+                properties: {
+                    text: {
+                        type: "string",
+                        description: "Text to analyze"
+                    }
+                },
+                required: ["text"]
+            }
+        },
+        {
+            name: "analyze_tone",
+            description: "Analyze emotional tone and sentiment",
+            parameters: {
+                type: "object",
+                properties: {
+                    text: {
+                        type: "string",
+                        description: "Text to analyze"
+                    }
+                },
+                required: ["text"]
+            }
+        }
+    ],
+    ANALYZER_FUNCTIONS: [
+        {
+            name: "analyze_grammar",
+            description: "Analyze and fix grammar errors in text",
+            parameters: {
+                type: "object",
+                properties: {
+                    text: {
+                        type: "string",
+                        description: "Text to analyze"
+                    }
+                },
+                required: ["text"]
+            }
+        },
+        {
+            name: "analyze_tone",
+            description: "Analyze emotional tone and sentiment",
+            parameters: {
+                type: "object",
+                properties: {
+                    text: {
+                        type: "string",
+                        description: "Text to analyze"
+                    }
+                },
+                required: ["text"]
+            }
+        }
+    ],
+    SYSTEM_PROMPTS: {
+        grammar: `You are a professional grammar and writing assistant. For any given text:
+1. Always suggest improvements for clarity and correctness
+2. Fix grammar, spelling, and punctuation errors
+3. Improve word choice and sentence structure
+4. Return results in JSON format with an array of 'corrections', each containing:
+   - 'original': the original text segment
+   - 'suggestion': the improved version
+   - 'reason': brief explanation of the change`,
+        tone: `You are an expert tone analyzer. For any given text:
+1. Analyze the emotional tone, sentiment, and communication style
+2. Return results in JSON format with:
+   - 'primary': the dominant tone (e.g., "Professional", "Casual", "Formal")
+   - 'emotions': array of detected emotions, each with:
+     * 'name': emotion name
+     * 'emoji': relevant emoji
+     * 'confidence': percentage (0-100)
+   - 'suggestions': array of tone improvement suggestions`
+    }
 };
 
 // DOM Elements
@@ -67,7 +146,23 @@ const elements = {
     responseOutput: document.getElementById('responseOutput'),
     wordCount: document.getElementById('wordCount'),
     tonePreview: document.getElementById('tonePreview'),
-    toastContainer: document.getElementById('toastContainer')
+    toastContainer: document.getElementById('toastContainer'),
+
+    // Mode switching elements
+    modeSwitcher: document.querySelector('.mode-switcher'),
+    modeButtons: document.querySelectorAll('.mode-button'),
+    analyzerCard: document.getElementById('analyzerCard'),
+    analyzerInput: document.getElementById('analyzerInput'),
+    analyzerWordCount: document.getElementById('analyzerWordCount'),
+    grammarCheck: document.getElementById('grammarCheck'),
+    toneAnalysis: document.getElementById('toneAnalysis'),
+    analyzeButton: document.getElementById('analyzeButton'),
+    analysisResultsCard: document.getElementById('analysisResultsCard'),
+    grammarResults: document.getElementById('grammarResults'),
+    toneResults: document.getElementById('toneResults'),
+    copyAnalysis: document.getElementById('copyAnalysis'),
+    replyCard: document.querySelector('.card:not(.analyzer-card):not(.analysis-results)'),
+    responseCard: document.querySelector('.card:not(.analyzer-card):not(.analysis-results):nth-child(2)')
 };
 
 // Application State
@@ -76,7 +171,16 @@ const state = {
     currentResponse: '',
     retryCount: 0,
     apiKey: ApiKeyManager.getApiKey(),
-    streamController: null
+    streamController: null,
+    currentMode: 'reply', // 'reply' or 'analyzer'
+    analysisResults: {
+        grammar: [],
+        tone: {
+            primary: '',
+            emotions: [],
+            suggestions: []
+        }
+    }
 };
 
 // Utility Functions
@@ -570,6 +674,19 @@ function initializeEventListeners() {
             copyToClipboard();
         }
     });
+
+    // Mode switching
+    elements.modeButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            const mode = button.dataset.mode;
+            switchMode(mode);
+        });
+    });
+
+    // Analyzer events
+    elements.analyzerInput.addEventListener('input', updateAnalyzerWordCount);
+    elements.analyzeButton.addEventListener('click', analyzeMessage);
+    elements.copyAnalysis.addEventListener('click', copyAnalysisResults);
 }
 
 // Initialize
@@ -591,3 +708,225 @@ function initialize() {
 
 // Start the application
 initialize();
+
+// Add these new functions
+async function analyzeMessage() {
+    if (state.isGenerating) return;
+
+    const text = elements.analyzerInput.value.trim();
+    if (countWords(text) < CONFIG.MIN_WORDS) {
+        Toast.show('Please enter at least a few words', 'error');
+        return;
+    }
+
+    state.isGenerating = true;
+    updateAnalyzerUIState(true);
+
+    try {
+        const grammarCheck = elements.grammarCheck.checked;
+        const toneAnalysis = elements.toneAnalysis.checked;
+        elements.analysisResultsCard.style.display = 'block';
+        elements.grammarResults.innerHTML = '<div class="loading-indicator">Analyzing grammar...</div>';
+        elements.toneResults.innerHTML = '<div class="loading-indicator">Analyzing tone...</div>';
+
+        if (grammarCheck) {
+            const response = await fetch('https://api.x.ai/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${state.apiKey}`
+                },
+                body: JSON.stringify({
+                    model: "grok-beta",
+                    messages: [
+                        {
+                            role: "system",
+                            content: CONFIG.SYSTEM_PROMPTS.grammar
+                        },
+                        {
+                            role: "user",
+                            content: `Analyze this text and suggest improvements: "${text}"`
+                        }
+                    ]
+                })
+            });
+
+            const data = await response.json();
+            const content = data.choices?.[0]?.message?.content;
+            if (content) {
+                try {
+                    // Extract JSON from markdown code block
+                    const jsonMatch = content.match(/```json\n([\s\S]*?)\n```/);
+                    const jsonStr = jsonMatch ? jsonMatch[1] : content;
+                    const grammarResults = JSON.parse(jsonStr);
+                    displayGrammarResults(grammarResults);
+                } catch (e) {
+                    console.error('Grammar parsing error:', e);
+                    elements.grammarResults.innerHTML = '<p>Error parsing grammar analysis.</p>';
+                }
+            }
+        }
+
+        if (toneAnalysis) {
+            const response = await fetch('https://api.x.ai/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${state.apiKey}`
+                },
+                body: JSON.stringify({
+                    model: "grok-beta",
+                    messages: [
+                        {
+                            role: "system",
+                            content: CONFIG.SYSTEM_PROMPTS.tone
+                        },
+                        {
+                            role: "user",
+                            content: `Analyze the tone and emotions in this text: "${text}"`
+                        }
+                    ]
+                })
+            });
+
+            const data = await response.json();
+            const content = data.choices?.[0]?.message?.content;
+            if (content) {
+                try {
+                    // Extract JSON from markdown code block
+                    const jsonMatch = content.match(/```json\n([\s\S]*?)\n```/);
+                    const jsonStr = jsonMatch ? jsonMatch[1] : content;
+                    const toneResults = JSON.parse(jsonStr);
+                    displayToneResults(toneResults);
+                } catch (e) {
+                    console.error('Tone parsing error:', e);
+                    elements.toneResults.innerHTML = '<p>Error parsing tone analysis.</p>';
+                }
+            }
+        }
+
+        Toast.show('Analysis completed successfully', 'success');
+    } catch (error) {
+        console.error('Analysis Error:', error);
+        Toast.show(error.message || 'Failed to analyze message. Please try again.', 'error');
+    } finally {
+        state.isGenerating = false;
+        updateAnalyzerUIState(false);
+    }
+}
+
+function displayGrammarResults(results) {
+    if (!results.corrections || !Array.isArray(results.corrections) || results.corrections.length === 0) {
+        elements.grammarResults.innerHTML = `
+            <div class="correction-item">
+                <div class="correction-text">
+                    ${elements.analyzerInput.value.trim()}
+                </div>
+            </div>`;
+        return;
+    }
+
+    // Create a copy of the original text and apply all corrections
+    let finalText = elements.analyzerInput.value.trim();
+    results.corrections.forEach(correction => {
+        finalText = finalText.replace(correction.original, correction.suggestion);
+    });
+
+    elements.grammarResults.innerHTML = `
+        <div class="correction-item">
+            <div class="correction-text">${finalText}</div>
+        </div>
+    `;
+}
+
+function displayToneResults(results) {
+    let html = '';
+    
+    if (results.primary) {
+        html += `<div class="tone-text">Tone: ${results.primary}</div>`;
+    }
+
+    if (results.emotions && Array.isArray(results.emotions)) {
+        const emotionText = results.emotions
+            .map(emotion => `${emotion.emoji || ''} ${emotion.name}`)
+            .join(' • ');
+        html += `<div class="tone-text">${emotionText}</div>`;
+    }
+
+    elements.toneResults.innerHTML = html || '<div class="tone-text">Neutral tone</div>';
+}
+
+function copyAnalysisResults() {
+    const grammarText = elements.grammarResults.querySelector('.correction-text')?.textContent || '';
+    const toneText = Array.from(elements.toneResults.querySelectorAll('.tone-text'))
+        .map(item => item.textContent.trim())
+        .join('\n');
+
+    const fullText = `${grammarText}\n\n${toneText}`;
+    
+    navigator.clipboard.writeText(fullText).then(() => {
+        Toast.show('Analysis copied to clipboard', 'success');
+    }).catch(() => {
+        Toast.show('Failed to copy analysis', 'error');
+    });
+}
+
+function updateAnalyzerUIState(isAnalyzing) {
+    const button = elements.analyzeButton;
+    button.disabled = isAnalyzing;
+    
+    const buttonContent = button.querySelector('.button-content');
+    if (isAnalyzing) {
+        buttonContent.innerHTML = `
+            <svg class="analyze-icon loading" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+            </svg>
+            Analyzing...
+        `;
+    } else {
+        buttonContent.innerHTML = `
+            <svg class="analyze-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+                <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+            </svg>
+            Analyze Message
+        `;
+    }
+}
+
+function switchMode(mode) {
+    state.currentMode = mode;
+    
+    // Update button states
+    elements.modeButtons.forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.mode === mode);
+    });
+
+    // Toggle visibility of cards
+    if (mode === 'reply') {
+        elements.replyCard.style.display = 'block';
+        elements.responseCard.style.display = 'block';
+        elements.analyzerCard.style.display = 'none';
+        elements.analysisResultsCard.style.display = 'none';
+        document.querySelector('.subtitle').textContent = 'Craft perfect email responses in seconds with AI';
+    } else {
+        elements.replyCard.style.display = 'none';
+        elements.responseCard.style.display = 'none';
+        elements.analyzerCard.style.display = 'block';
+        elements.analysisResultsCard.style.display = 'none';
+        document.querySelector('.subtitle').textContent = 'Analyze and improve your messages with AI';
+    }
+
+    // Clear inputs and results when switching modes
+    if (mode === 'analyzer') {
+        elements.analyzerInput.value = '';
+        updateAnalyzerWordCount();
+    }
+}
+
+function updateAnalyzerWordCount() {
+    const count = countWords(elements.analyzerInput.value);
+    elements.analyzerWordCount.textContent = `${count} words`;
+    elements.analyzeButton.disabled = count < CONFIG.MIN_WORDS;
+}
+
